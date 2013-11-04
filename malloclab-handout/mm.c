@@ -70,9 +70,10 @@ team_t team = {
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 static void *extend_heap(size_t words);
-static void place(void *bp, size_t asize);
+static void *place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void *coalesce(void *bp);
+
 
 static void *extend_heap(size_t words)
 {
@@ -82,7 +83,7 @@ static void *extend_heap(size_t words)
     /* Allocate an even number of words to maintain alignment */
     size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
    
-    if ((long)(bp = mem_sbrk(size)) == -1)
+    if ((int)(bp = mem_sbrk(size)) == -1)
         return NULL;
 
     /* Initialize free block header/footer and the epilogue header */
@@ -138,7 +139,7 @@ static void *find_fit(size_t asize)
     return NULL; /* no fit */
 }
 
-static void place(void *bp, size_t asize)
+static void *place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
     if ((csize - asize) >= (2*DSIZE)) {
@@ -147,10 +148,12 @@ static void place(void *bp, size_t asize)
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize-asize, 0));
         PUT(FTRP(bp), PACK(csize-asize, 0));
+        return bp;
     }
     else {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+        return NULL;
     }
 }
 
