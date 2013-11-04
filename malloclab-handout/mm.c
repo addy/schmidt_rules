@@ -133,9 +133,13 @@ static void *find_fit(size_t asize)
     /* first fit search */
     for (bp = mem_heap_lo(); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+            printf("found fit\n");
+            fflush(stdout);
             return bp;
         }
     }
+    printf("no fit found!\n");
+    fflush(stdout);
     return NULL; /* no fit */
 }
 
@@ -148,11 +152,15 @@ static void *place(void *bp, size_t asize)
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize-asize, 0));
         PUT(FTRP(bp), PACK(csize-asize, 0));
+        printf("no errors in place\n");
+        fflush(stdout);
         return bp;
     }
     else {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+        printf("need to split.\n");
+        fflush(stdout);
         return NULL;
     }
 }
@@ -204,15 +212,25 @@ void *mm_malloc(size_t size)
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
+        printf("success!\n");
+        fflush(stdout);
         return bp;
     }
     
     /* No fit found. Get more memory and place the block */
     extendsize = MAX(asize,CHUNKSIZE);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
+    {
+        printf("nothing found...\n");
+        fflush(stdout);
         return NULL;
-    
+    }
+        
+    printf("placing...\n");
+    fflush(stdout);
     place(bp, asize);
+    printf("placed.\n");
+    fflush(stdout);
     return bp;
 
 }

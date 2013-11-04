@@ -608,6 +608,8 @@ static int eval_mm_valid(trace_t *trace, int tracenum, range_t **ranges)
 		malloc_error(tracenum, i, "mm_malloc failed.");
 		return 0;
 	    }
+
+        printf("done\n");
 	    
 	    /* 
 	     * Test the range of the new block for correctness and add it 
