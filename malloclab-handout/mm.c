@@ -70,7 +70,7 @@ team_t team = {
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 static void *extend_heap(size_t words);
-static void *place(void *bp, size_t asize);
+static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void *coalesce(void *bp);
 
@@ -138,84 +138,19 @@ static void *find_fit(size_t asize)
     return NULL; /* no fit */
 }
 
-static void *place(void *bp, size_t asize)
+static void place(void *bp, size_t asize)
 {
-    /* $end mmplace-proto */
     size_t csize = GET_SIZE(HDRP(bp));
-    size_t split_size = (csize - asize);
-
-    if (split_size >= (DSIZE + DSIZE)) 
-    {
-        size_t avg = (GET_SIZE(NEXT_BLKP(bp)) + GET_SIZE(PREV_BLKP(bp)))/2; 
-        void* large;
-        void* small;
-        int split_side;
-
-        /* Which side should we split on? Let split_side = 0 or 1
-           0 = Let's split the end
-           1 = Let's split the front 
-        */
-        
-        if(GET_SIZE(NEXT_BLKP(bp)) > GET_SIZE(PREV_BLKP(bp)))
-        {
-            large = NEXT_BLKP(bp);
-            small = PREV_BLKP(bp);
-        }
-        else
-        {
-            large = PREV_BLKP(bp);
-            small = NEXT_BLKP(bp);
-        }
-         
-        if(asize > avg)
-        {
-            if(PREV_BLKP(bp) == large)
-                split_side = 0;
-            else 
-                split_side = 1;           
-        }
-        else
-        {
-            if(PREV_BLKP(bp) == large)
-                split_side = 1;
-            else 
-                split_side = 0;
-        }
-        
-        if(split_side != 1)
-        {
-            PUT(HDRP(bp), PACK(asize, 1));
-            PUT(FTRP(bp), PACK(asize, 1));
-
-            void* split = NEXT_BLKP(bp);
-
-            PUT(HDRP(split), PACK(csize-asize, 0));
-            PUT(FTRP(split), PACK(csize-asize, 0));
-
-            tree_root = mm_insert(tree_root,split);
-
-            return bp;
-        }
-        else
-        {
-            PUT(HDRP(bp), PACK(split_size,0));
-            PUT(FTRP(bp), PACK(split_size,0));
-        
-            void *blk = NEXT_BLKP(bp);
-
-            PUT(HDRP(blk), PACK(asize, 1));
-            PUT(FTRP(blk), PACK(asize, 1));
-
-            tree_root = mm_insert(tree_root,bp);
-
-            return blk;
-        }
+    if ((csize - asize) >= (2*DSIZE)) {
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize-asize, 0));
+        PUT(FTRP(bp), PACK(csize-asize, 0));
     }
-    else
-    { 
+    else {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
-        return bp;
     }
 }
 
@@ -231,7 +166,7 @@ int mm_init(void)
         return -1;
 
     PUT(base, 0); /* Alignment padding */
-    PUT(mbase + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
+    PUT(base + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
     PUT(base + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
     PUT(base + (3*WSIZE), PACK(0, 1)); /* Epilogue header */
     base += (2*WSIZE);
@@ -284,10 +219,10 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
-    size_t size = GET_SIZE(HDRP(bp));
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
-    coalesce(bp);
+    size_t size = GET_SIZE(HDRP(ptr));
+    PUT(HDRP(ptr), PACK(size, 0));
+    PUT(FTRP(ptr), PACK(size, 0));
+    coalesce(ptr);
 }
 
 /*
