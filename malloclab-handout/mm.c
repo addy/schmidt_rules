@@ -149,7 +149,7 @@ static void* extend_heap(size_t words)
     return bp;
 }
 
-static void *coalesce(void *bp)
+static void* coalesce(void *bp)
 {
     size_t prev_alloc = IS_ALLOCATED(getFooterPointer(getPreviousBlockPointer(bp)));
     size_t next_alloc = IS_ALLOCATED(getHeaderPointer(getNextBlockPointer(bp)));
