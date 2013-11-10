@@ -74,28 +74,12 @@ static void* coalesce(void* bp);
 static void* getHeaderPointer(char* blockPointer)
 {
     void* ret = blockPointer - WORD_SIZE;
-    if(ret < mem_heap_lo() || ret > mem_heap_hi())
-    {
-        printf("!!!!!!! WARNING: getHeaderPointer returning pointer outside heap!\n");
-        printf("0x%X < 0x%X || 0x%X > 0x%X",
-            (unsigned int)ret, (unsigned int)mem_heap_lo(), (unsigned int)ret, (unsigned int)mem_heap_hi()
-        );
-        printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    }
     return ret;
 }
 
 static void* getFooterPointer(char* blockPointer)
 {
     void* ret = blockPointer + GET_SIZE(getHeaderPointer(blockPointer)) - DOUBLE_WORD_SIZE;
-    if(ret < mem_heap_lo() || ret > mem_heap_hi())
-    {
-        printf("!!!!!!! WARNING: getHeaderPointer returning pointer outside heap!\n");
-        printf("0x%X < 0x%X || 0x%X > 0x%X",
-            (unsigned int)ret, (unsigned int)mem_heap_lo(), (unsigned int)ret, (unsigned int)mem_heap_hi()
-            );
-        printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    }
     return ret;
 }
 
@@ -122,10 +106,7 @@ static void* extend_heap(size_t words)
 
     size = words * WORD_SIZE;
 
-    printf("---- extend_heap(%d) allocating %d bytes\n", words, size);
-
     bp = mem_sbrk(size);
-    printf("bp = mem_sbrk(%d) = 0x%X\n", size, (unsigned int)bp);
 
     if ((int)bp == -1)
     {
@@ -136,13 +117,6 @@ static void* extend_heap(size_t words)
     PUT_IN_WORD_POINTER(getHeaderPointer(bp), PACK(size, 0)); /* Free block header */
     PUT_IN_WORD_POINTER(getFooterPointer(bp), PACK(size, 0)); /* Free block footer */
     PUT_IN_WORD_POINTER(getHeaderPointer(getNextBlockPointer(bp)), PACK(0, 1)); /* New epilogue header */
-
-    printf("New block:\nbp = 0x%X\nheader = 0x%X\nfooter = 0x%X\nsize(hdr/ftr) = %d/%d\n",
-        (unsigned int)bp,
-        (unsigned int)getHeaderPointer(bp),
-        (unsigned int)getFooterPointer(bp),
-        GET_SIZE(getHeaderPointer(bp)),
-        GET_SIZE(getFooterPointer(bp)));
 
     /* Coalesce if the previous block was free */
     //return coalesce(bp);
@@ -182,7 +156,6 @@ static void* coalesce(void *bp)
 
 static void *find_fit(size_t adjustedSize)
 {
-    printf("---- find_fit(%d)\n", adjustedSize);
     void* bp =  mem_heap_lo() + HEAP_BASE_OFFSET;
 
     /* first fit search */
@@ -190,15 +163,12 @@ static void *find_fit(size_t adjustedSize)
     {
         if (!IS_ALLOCATED(getHeaderPointer(bp)) && (adjustedSize <= GET_SIZE(getHeaderPointer(bp))))
         {
-            printf("---- found fit %d && %d <= %d\n", IS_ALLOCATED(getHeaderPointer(bp)), adjustedSize, GET_SIZE(getHeaderPointer(bp)));
-            fflush(stdout);
             return bp;
         }
 
         bp = getNextBlockPointer(bp);
     }
-    printf("---- find_fit(%d) failed to find fit\n", adjustedSize);
-    fflush(stdout);
+
     return NULL; /* no fit */
 }
 
@@ -212,16 +182,14 @@ static void *place(void *bp, size_t asize)
         bp = getNextBlockPointer(bp);
         PUT_IN_WORD_POINTER(getHeaderPointer(bp), PACK(csize-asize, 0));
         PUT_IN_WORD_POINTER(getFooterPointer(bp), PACK(csize-asize, 0));
-        printf("no errors in place\n");
-        fflush(stdout);
+
         return bp;
     }
     else
     {
         PUT_IN_WORD_POINTER(getHeaderPointer(bp), PACK(csize, 1));
         PUT_IN_WORD_POINTER(getFooterPointer(bp), PACK(csize, 1));
-        printf("need to split.\n");
-        fflush(stdout);
+
         return NULL;
     }
 }
@@ -261,8 +229,6 @@ int mm_init(void)
 */
 void *mm_malloc(size_t size)
 {
-    printf("----- mm_malloc(%d)\n", size);
-
     size_t adjustedSize; /* Adjusted block size */
     size_t extendSize; /* Amount to extend heap if no fit */
     char *bp;
@@ -270,7 +236,6 @@ void *mm_malloc(size_t size)
     /* Ignore spurious requests */
     if (size == 0)
     {
-        printf("----- mm_malloc: Returning NULL (No size allocation)\n");
         return NULL;
     }
 
@@ -288,7 +253,6 @@ void *mm_malloc(size_t size)
     if ((bp = find_fit(adjustedSize)) != NULL)
     {
         place(bp, adjustedSize);
-        printf("----- mm_malloc: Returning %X (Found fit)\n", (unsigned int)bp);
         return bp;
     }
 
@@ -296,13 +260,10 @@ void *mm_malloc(size_t size)
     extendSize = MAX(adjustedSize,CHUNK_SIZE);
     if ((bp = extend_heap(extendSize / WORD_SIZE)) == NULL)
     {
-        printf("----- mm_malloc: Returning NULL (No Fit + Couldn't extend heap :( )\n");
         return NULL;
     }
     
     place(bp, adjustedSize);
-
-    printf("----- mm_malloc: Returning %X (Heap Extended)\n", (unsigned int)bp);
     return bp;
 }
 
@@ -311,12 +272,10 @@ void *mm_malloc(size_t size)
 */
 void mm_free(void *ptr)
 {
-    printf("----- mm_free(%X)\n", (unsigned int)ptr);
     size_t size = GET_SIZE(getHeaderPointer(ptr));
     PUT_IN_WORD_POINTER(getHeaderPointer(ptr), PACK(size, 0));
     PUT_IN_WORD_POINTER(getFooterPointer(ptr), PACK(size, 0));
     coalesce(ptr);
-    printf("----- mm_free: Returning.\n");
 }
 
 /*

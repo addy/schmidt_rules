@@ -408,10 +408,6 @@ static int add_range(range_t **ranges, char *lo, int size,
                 lowTooLow, lowTooHigh, highTooLow, highTooHigh);
             return 0;
     }
-    else
-    {
-        printf("Your paymeowd is fine by me <3 :3\n");
-    }
 
     /* The payload must not overlap any other payloads */
     for (p = *ranges;  p != NULL;  p = p->next) {
@@ -625,8 +621,6 @@ static int eval_mm_valid(trace_t *trace, int tracenum, range_t **ranges)
                 malloc_error(tracenum, i, "mm_malloc failed.");
                 return 0;
             }
-
-            printf("done\n");
 
             /* 
             * Test the range of the new block for correctness and add it 
