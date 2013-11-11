@@ -1,14 +1,13 @@
 /*
-* mm-naive.c - The fastest, least memory-efficient malloc package.
-* 
-* In this naive approach, a block is allocated by simply incrementing
-* the brk pointer.  A block is pure payload. There are no headers or
-* footers.  Blocks are never coalesced or reused. Realloc is
-* implemented directly using mm_malloc and mm_free.
-*
-* NOTE TO STUDENTS: Replace this header comment with your own header
-* comment that gives a high level description of your solution.
+The mem_init function models the virtual memory available to the heap as a
+large, double-word aligned array of bytes. The bytes between mem_heap and mem_
+brk represent allocated virtual memory. The bytes following mem_brk represent
+unallocated virtual memory. The allocator requests additional heap memory by
+calling the mem_sbrk function, which has the same interface as the system’s sbrk
+function, as well as the same semantics, except that it rejects requests to shrink
+the heap.░░░░░
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -71,28 +70,33 @@ static void* place(void* bp, size_t asize);
 static void* find_fit(size_t asize);
 static void* coalesce(void* bp);
 
+/*Converted function - return the header of the pointer*/
 static void* getHeaderPointer(char* blockPointer)
 {
     void* ret = blockPointer - WORD_SIZE;
     return ret;
 }
 
+/*Converted function - return the footer of the pointer*/
 static void* getFooterPointer(char* blockPointer)
 {
     void* ret = blockPointer + GET_SIZE(getHeaderPointer(blockPointer)) - DOUBLE_WORD_SIZE;
     return ret;
 }
 
+/*Converted function - return the next block pointer*/
 static void* getNextBlockPointer(char* blockPointer)
 {
     return blockPointer + GET_SIZE(blockPointer - WORD_SIZE);
 }
 
+/*Converted function - return the previous block pointer*/
 static void* getPreviousBlockPointer(char* blockPointer)
 {
     return blockPointer - GET_SIZE(blockPointer - DOUBLE_WORD_SIZE);
 }
 
+/*Adds onto the current heap size by the necessary word size*/
 static void* extend_heap(size_t words)
 {
     char* bp;
@@ -123,6 +127,7 @@ static void* extend_heap(size_t words)
     return bp;
 }
 
+/*Searches for free blocks to increase the available size*/
 static void* coalesce(void *bp)
 {
     size_t prev_alloc = IS_ALLOCATED(getFooterPointer(getPreviousBlockPointer(bp)));
@@ -145,7 +150,7 @@ static void* coalesce(void *bp)
     }
     else { /* Case 4 */
         size += GET_SIZE(getHeaderPointer(getPreviousBlockPointer(bp))) +
-            GET_SIZE(getFooterPointer(getNextBlockPointer(bp)));
+        GET_SIZE(getFooterPointer(getNextBlockPointer(bp)));
         PUT_IN_WORD_POINTER(getHeaderPointer(getPreviousBlockPointer(bp)), PACK(size, 0));
         PUT_IN_WORD_POINTER(getFooterPointer(getNextBlockPointer(bp)), PACK(size, 0));
         bp = getPreviousBlockPointer(bp);
@@ -154,7 +159,8 @@ static void* coalesce(void *bp)
     return bp;
 }
 
-static void *find_fit(size_t adjustedSize)
+/*searches for a valid placement and returns the pointer to its position*/
+static void* find_fit(size_t adjustedSize)
 {
     void* bp =  mem_heap_lo() + HEAP_BASE_OFFSET;
 
@@ -172,6 +178,7 @@ static void *find_fit(size_t adjustedSize)
     return NULL; /* no fit */
 }
 
+/*responsible for placing the payload into the heap*/
 static void *place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(getHeaderPointer(bp));
@@ -292,7 +299,7 @@ void *mm_realloc(void *ptr, size_t size)
     {
         return NULL;
     }
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(getHeaderPointer(oldptr));
     if (size < copySize)
     {
         copySize = size;
@@ -300,4 +307,52 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
+}
+
+/*Checks consistency of heap
+    -Checks invariants
+    -Prints error messages
+    -Returns non-zero value if heap is consistent
+*/
+static int mm_check(void)
+{
+    void* ptr;
+    size_t* heap_top =  mem_heap_hi();
+    size_t* heap_bot =  mem_heap_lo();
+    size_t* heap_size = mem_heapsize();
+
+    assert(heap_bot < (heap_top + heap_size));
+    
+    for(ptr = heap_top; GET_SIZE(getHeaderPointer(ptr)) > 0; ptr = getNextBlockPointer(ptr)) 
+    {      
+        if ((int)ptr > (int)heap_top)
+        {
+            printf("ERROR: Top of heap exceeded by pointer\n top: %p,\n pointer: %p\n", heap_top, ptr);
+        }
+        if ((int)ptr > (int)heap_bot || (int)ptr < (int)heap_top)
+        {        
+            printf("Error: pointer %p out of heap bounds\n", ptr);
+        }
+        if (IS_ALLOCATED(getHeaderPointer(ptr)) == 0 && IS_ALLOCATED(getHeaderPointer(getNextBlockPointer(ptr))) == 0)
+        {
+            printf("Error: Empty stacked blocks %p and %p not coalesced\n", ptr, getNextBlockPointer(ptr));
+        }
+        if ((size_t)ptr % 8)
+        {
+            printf("Error: %p misaligned our headers and payload\n", ptr);
+        }
+    }
+
+    int i;
+    for (i = 0; i < 100; i++) 
+    {
+        ptr = (char*)GET_AS_WORD_POINTER(heap_bot + (i * WSIZE));
+        while (ptr != NULL) 
+        {
+            assert(!IS_ALLOCATED(ptr));
+            ptr = (char*)GET_AS_WORD_POINTER(ptr);
+        }
+    }
+
+    return 0;
 }
